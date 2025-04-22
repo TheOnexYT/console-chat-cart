@@ -1,20 +1,31 @@
 
 import React from "react";
 import { useCart } from "@/contexts/CartContext";
+import { useAuthStore } from "@/stores/authStore";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import CartItem from "@/components/CartItem";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, ArrowLeft } from "lucide-react";
-import { Link } from "react-router-dom";
+import { ShoppingCart, ArrowLeft, LogIn } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { generateWhatsAppLink } from "@/utils/whatsapp";
 
 const Cart: React.FC = () => {
   const { state, clearCart } = useCart();
   const { items, total } = state;
+  const { isAuthenticated } = useAuthStore();
+  const navigate = useNavigate();
 
   const handleCheckout = () => {
-    // Define the WhatsApp phone number (replace with your actual number)
+    if (isAuthenticated) {
+      navigate("/checkout");
+    } else {
+      navigate("/login");
+    }
+  };
+
+  const handleWhatsAppCheckout = () => {
+    // Define the WhatsApp phone number
     const phoneNumber = "1234567890";
     
     // Generate WhatsApp link with order details
@@ -107,12 +118,31 @@ const Cart: React.FC = () => {
                     </div>
                     
                     <div className="space-y-4">
+                      {isAuthenticated ? (
+                        <Button
+                          onClick={handleCheckout}
+                          className="w-full gaming-button h-12 text-lg"
+                        >
+                          Finalizar Compra
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={handleCheckout}
+                          className="w-full gaming-button h-12 text-lg flex items-center justify-center"
+                        >
+                          <LogIn className="mr-2 h-5 w-5" />
+                          Iniciar sesión para comprar
+                        </Button>
+                      )}
+                      
                       <Button
-                        onClick={handleCheckout}
-                        className="w-full gaming-button h-12 text-lg"
+                        onClick={handleWhatsAppCheckout}
+                        variant="outline"
+                        className="w-full border-green-500 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
                       >
                         Contactar por WhatsApp
                       </Button>
+                      
                       <Button
                         variant="outline"
                         className="w-full border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -123,7 +153,7 @@ const Cart: React.FC = () => {
                     </div>
                     
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
-                      Al hacer clic en "Contactar por WhatsApp", serás redirigido a WhatsApp para finalizar tu pedido directamente con nuestro equipo de ventas.
+                      Al finalizar la compra podrás revisar tu pedido antes de confirmarlo.
                     </p>
                   </div>
                 </div>
