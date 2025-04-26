@@ -1,248 +1,190 @@
-
-import React from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle 
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/hooks/use-toast';
-import { useProductStore } from '@/stores/productStore';
-import { Product } from '@/types/product';
-
-// Schema for product form validation
-const productSchema = z.object({
-  name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres'),
-  description: z.string().min(10, 'La descripción debe tener al menos 10 caracteres'),
-  price: z.coerce.number().positive('El precio debe ser positivo'),
-  image: z.string().url('La URL de la imagen no es válida'),
-  category: z.string().min(1, 'La categoría es obligatoria'),
-  stock: z.coerce.number().int().nonnegative('El stock debe ser un número entero no negativo'),
-  rating: z.coerce.number().min(0, 'La calificación mínima es 0').max(5, 'La calificación máxima es 5'),
-  features: z.string(),
-  specifications: z.string()
-});
-
-type ProductFormValues = z.infer<typeof productSchema>;
+import React, { useState } from 'react';
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface ProductFormModalProps {
-  product: Product | null;
-  onClose: () => void;
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  onSubmit: (data: any) => void;
 }
 
-const ProductFormModal: React.FC<ProductFormModalProps> = ({ product, onClose }) => {
+const ProductFormModal: React.FC<ProductFormModalProps> = ({ open, setOpen, onSubmit }) => {
   const { toast } = useToast();
-  const { addProduct, updateProduct } = useProductStore();
-  const isEditing = !!product;
+  const [productName, setProductName] = useState('');
+  const [productDescription, setProductDescription] = useState('');
+  const [productPrice, setProductPrice] = useState('');
+  const [productImage, setProductImage] = useState('');
+  const [productCategory, setProductCategory] = useState('');
+  const [productStock, setProductStock] = useState('');
+  const [productRating, setProductRating] = useState('');
+  const [productFeatures, setProductFeatures] = useState('');
+  const [productSpecifications, setProductSpecifications] = useState('');
 
-  // Convert product data for the form
-  const defaultValues: ProductFormValues = isEditing 
-    ? {
-        ...product,
-        features: product.features.join('\n'),
-        specifications: Object.entries(product.specifications)
-          .map(([key, value]) => `${key}: ${value}`)
-          .join('\n')
-      }
-    : {
-        name: '',
-        description: '',
-        price: 0,
-        image: '',
-        category: '',
-        stock: 0,
-        rating: 0,
-        features: '',
-        specifications: ''
-      };
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting }
-  } = useForm<ProductFormValues>({
-    resolver: zodResolver(productSchema),
-    defaultValues
-  });
-
-  const onSubmit = async (data: ProductFormValues) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = {
+      name: productName,
+      description: productDescription,
+      price: Number(productPrice),
+      image: productImage,
+      category: productCategory,
+      stock: Number(productStock),
+      rating: Number(productRating),
+      features: productFeatures,
+      specifications: productSpecifications
+    };
+    
     try {
-      // Convert form data back to product format
-      const productData = {
-        ...data,
-        features: data.features.split('\n').filter(f => f.trim()),
-        specifications: data.specifications.split('\n').reduce((acc, line) => {
-          const [key, value] = line.split(':').map(part => part.trim());
-          if (key && value) {
-            acc[key] = value;
-          }
-          return acc;
-        }, {} as Record<string, string>)
-      };
-
-      if (isEditing && product) {
-        await updateProduct(product.id, productData);
-        toast({
-          title: 'Producto actualizado',
-          description: 'El producto ha sido actualizado correctamente'
-        });
-      } else {
-        await addProduct(productData);
-        toast({
-          title: 'Producto creado',
-          description: 'El producto ha sido creado correctamente'
-        });
-      }
-      onClose();
+      onSubmit(formData);
+      toast({
+        title: "Producto creado exitosamente!",
+        description: "El producto ha sido creado y agregado a la tienda.",
+      });
+      setOpen(false);
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Ocurrió un error al guardar el producto',
-        variant: 'destructive'
+        variant: "destructive",
+        title: "Uh oh! Algo salió mal.",
+        description: "Hubo un error al crear el producto. Por favor, inténtalo de nuevo.",
       });
     }
   };
 
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>
-            {isEditing ? 'Editar Producto' : 'Nuevo Producto'}
-          </DialogTitle>
+          <DialogTitle>Agregar nuevo producto</DialogTitle>
+          <DialogDescription>
+            Crea un nuevo producto para agregar a la tienda.
+          </DialogDescription>
         </DialogHeader>
-
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Nombre</label>
-              <Input 
-                {...register('name')} 
-                placeholder="Nombre del producto"
-              />
-              {errors.name && (
-                <p className="text-sm text-red-500">{errors.name.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Categoría</label>
-              <Input 
-                {...register('category')} 
-                placeholder="Categoría"
-              />
-              {errors.category && (
-                <p className="text-sm text-red-500">{errors.category.message}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Descripción</label>
-            <Textarea 
-              {...register('description')} 
-              placeholder="Descripción detallada del producto" 
-              rows={3}
+        <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="name" className="text-right">
+              Nombre
+            </Label>
+            <Input
+              type="text"
+              id="name"
+              value={productName}
+              onChange={(e) => setProductName(e.target.value)}
+              className="col-span-3"
             />
-            {errors.description && (
-              <p className="text-sm text-red-500">{errors.description.message}</p>
-            )}
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Precio</label>
-              <Input 
-                {...register('price')} 
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-              />
-              {errors.price && (
-                <p className="text-sm text-red-500">{errors.price.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Stock</label>
-              <Input 
-                {...register('stock')} 
-                type="number" 
-                placeholder="0"
-              />
-              {errors.stock && (
-                <p className="text-sm text-red-500">{errors.stock.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Rating</label>
-              <Input 
-                {...register('rating')} 
-                type="number" 
-                step="0.1"
-                min="0"
-                max="5"
-                placeholder="0.0"
-              />
-              {errors.rating && (
-                <p className="text-sm text-red-500">{errors.rating.message}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">URL de Imagen</label>
-            <Input 
-              {...register('image')} 
-              placeholder="https://example.com/image.jpg"
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="description" className="text-right">
+              Descripción
+            </Label>
+            <Input
+              type="text"
+              id="description"
+              value={productDescription}
+              onChange={(e) => setProductDescription(e.target.value)}
+              className="col-span-3"
             />
-            {errors.image && (
-              <p className="text-sm text-red-500">{errors.image.message}</p>
-            )}
           </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Características (una por línea)</label>
-            <Textarea 
-              {...register('features')} 
-              placeholder="Característica 1&#10;Característica 2&#10;Característica 3" 
-              rows={3}
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="price" className="text-right">
+              Precio
+            </Label>
+            <Input
+              type="number"
+              id="price"
+              value={productPrice}
+              onChange={(e) => setProductPrice(e.target.value)}
+              className="col-span-3"
             />
-            {errors.features && (
-              <p className="text-sm text-red-500">{errors.features.message}</p>
-            )}
           </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Especificaciones (una por línea, formato "Clave: Valor")</label>
-            <Textarea 
-              {...register('specifications')} 
-              placeholder="CPU: Modelo CPU&#10;GPU: Modelo GPU&#10;Memoria: 16GB" 
-              rows={3}
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="image" className="text-right">
+              Imagen
+            </Label>
+            <Input
+              type="text"
+              id="image"
+              value={productImage}
+              onChange={(e) => setProductImage(e.target.value)}
+              className="col-span-3"
             />
-            {errors.specifications && (
-              <p className="text-sm text-red-500">{errors.specifications.message}</p>
-            )}
           </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting 
-                ? (isEditing ? 'Actualizando...' : 'Creando...') 
-                : (isEditing ? 'Actualizar' : 'Crear')}
-            </Button>
-          </DialogFooter>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="category" className="text-right">
+              Categoría
+            </Label>
+            <Select onValueChange={setProductCategory}>
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder="Selecciona una categoría" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="accion">Acción</SelectItem>
+                <SelectItem value="aventura">Aventura</SelectItem>
+                <SelectItem value="estrategia">Estrategia</SelectItem>
+                <SelectItem value="rol">Rol</SelectItem>
+                <SelectItem value="deportes">Deportes</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="stock" className="text-right">
+              Stock
+            </Label>
+            <Input
+              type="number"
+              id="stock"
+              value={productStock}
+              onChange={(e) => setProductStock(e.target.value)}
+              className="col-span-3"
+            />
+          </div>
+           <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="rating" className="text-right">
+              Rating
+            </Label>
+            <Input
+              type="number"
+              id="rating"
+              value={productRating}
+              onChange={(e) => setProductRating(e.target.value)}
+              className="col-span-3"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="features" className="text-right">
+              Características
+            </Label>
+            <Input
+              type="text"
+              id="features"
+              value={productFeatures}
+              onChange={(e) => setProductFeatures(e.target.value)}
+              className="col-span-3"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="specifications" className="text-right">
+              Especificaciones
+            </Label>
+            <Input
+              type="text"
+              id="specifications"
+              value={productSpecifications}
+              onChange={(e) => setProductSpecifications(e.target.value)}
+              className="col-span-3"
+            />
+          </div>
+          <Button type="submit">Crear producto</Button>
         </form>
       </DialogContent>
     </Dialog>
